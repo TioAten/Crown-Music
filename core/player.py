@@ -15,6 +15,9 @@ class Player:
         self.loop_song = False
         self.loop_playlist = False
 
+        # NUEVO: Guarda el tiempo desde el que arrancamos al adelantar
+        self._start_offset = 0.0
+
     def toggle_shuffle(self):
         self.shuffle = not self.shuffle
 
@@ -33,6 +36,23 @@ class Player:
             current_song = self.queue[self.current_index]
             self.queue = self._original_queue.copy()
             self.current_index = self.queue.index(current_song)
+
+    def get_total_length(self) -> float:
+        # Devuelve la duración total de la canción actual en segundos
+        if not self.queue:
+            return 0.0
+        try:
+            # Cargamos la metadata del archivo de audio para saber su longitud
+            sound = pygame.mixer.Sound(self.queue[self.current_index])
+            return sound.get_length()
+        except Exception:
+            return 0.0
+
+    def get_current_time(self) -> float:
+        # Le sumamos el offset al reloj interno de pygame para saber el tiempo real
+        if self._playing or self._paused:
+            return self._start_offset + (pygame.mixer.music.get_pos() / 1000.0)
+        return 0.0
 
     def set_volume(self, value: float):
         # value va de 0.0 a 1.0
@@ -70,6 +90,17 @@ class Player:
         if not self.queue:  # si no hay nada cargado, no hace nada
             return
         pygame.mixer.music.play()
+        self._playing = True
+        self._paused = False
+        self._start_offset = 0.0  # Si le damos play normal, el offset es 0
+
+    # NUEVO MÉTODO PARA ADELANTAR
+    def seek(self, seconds: float):
+        if not self.queue:
+            return
+        # play(start=...) reinicia la canción pero desde el segundo exacto
+        pygame.mixer.music.play(start=seconds)
+        self._start_offset = seconds  # Anotamos desde dónde arrancó
         self._playing = True
         self._paused = False
 

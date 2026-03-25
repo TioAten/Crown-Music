@@ -1,13 +1,27 @@
 import os
 
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStyle,
     QPushButton, QLabel, QFileDialog, QInputDialog, QListWidget, QMessageBox, QSlider
 )
 from PyQt6.QtCore import QTimer, Qt
 
 from core.player import Player
 from core.database import Database
+
+# Agrega la clase ClickableSlider
+class ClickableSlider(QSlider):
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        if event.button() == Qt.MouseButton.LeftButton:
+            val = QStyle.sliderValueFromPosition(
+                self.minimum(),
+                self.maximum(),
+                event.pos().x(),
+                self.width()
+            )
+            self.setValue(val)
+            self.sliderMoved.emit(val)
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -59,6 +73,30 @@ class MainWindow(QMainWindow):
         self.label_volume = QLabel(f"Vol: {saved_volume}%")
         self.player.set_volume(saved_volume / 100)  # Aplicamos el volumen real al motor
 
+        # Barra de progreso (Timeline)
+        # Reemplaza el QSlider estándar por tu nuevo ClickableSlider
+        # Antes tenías algo como: self.progress_bar = QSlider(Qt.Orientation.Horizontal)
+        # Instanciamos tu clase personalizada usando el nombre de variable que ya tenías
+        self.slider_progress = ClickableSlider(Qt.Orientation.Horizontal)
+        self.slider_progress.setEnabled(False)  # Se desactiva si no hay música
+
+        self.label_time_current = QLabel("0:00")
+        self.label_time_total = QLabel("0:00")
+
+        # Conectamos la señal 'sliderMoved' de tu nuevo ClickableSlider a la función 'seek_position'
+        # Nota: Pygame necesita un salto inmediato, 'sliderMoved' es más preciso aquí que 'sliderReleased'
+        self.slider_progress.sliderMoved.connect(self.seek_position)
+
+        # Conecta la señal 'sliderMoved' al método que maneja el "seek" en Pygame
+        self.slider_progress.sliderMoved.connect(self.seek_position)
+
+        # Layout para la barra de progreso y sus tiempos
+        progress_layout = QHBoxLayout()
+        progress_layout.addWidget(self.label_time_current)
+        self.slider_progress.setRange(0, 100)  # Rango por defecto (se actualiza en update_label)
+        progress_layout.addWidget(self.slider_progress)  # Usamos self.slider_progress aquí
+        progress_layout.addWidget(self.label_time_total)
+
         #Layout de las dos listas lado a lado
         lists_layout = QHBoxLayout()
         lists_layout.addWidget(self.list_playlists)
@@ -70,8 +108,6 @@ class MainWindow(QMainWindow):
         controls_layout.addWidget(self.btn_play)
         controls_layout.addWidget(self.btn_stop)
         controls_layout.addWidget(self.btn_next)
-        controls_layout.addWidget(self.btn_loop_song)
-        controls_layout.addWidget(self.btn_loop_playlist)
         controls_layout.addWidget(self.btn_loop_song)
         controls_layout.addWidget(self.btn_loop_playlist)
         controls_layout.addWidget(self.btn_shuffle)
@@ -90,6 +126,7 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(lists_layout)
         main_layout.addLayout(playlist_buttons_layout)
         main_layout.addWidget(self.label_song)
+        main_layout.addLayout(progress_layout)
         main_layout.addLayout(controls_layout)
 
         #Widget central - PyQt6 exige un widget central que contenga el layout
@@ -113,6 +150,7 @@ class MainWindow(QMainWindow):
         self.btn_loop_playlist.clicked.connect(self.toggle_loop_playlist_ui)
         self.btn_shuffle.clicked.connect(self.toggle_shuffle_ui)
         self.slider_volume.valueChanged.connect(self.change_volume)
+        self.slider_progress.sliderReleased.connect(self.seek_position)
 
         # Temporizador para escuchar los events de Pygame
         self.timer = QTimer(self)
@@ -130,24 +168,47 @@ class MainWindow(QMainWindow):
         self.label_volume.setText(f"Vol: {value}%")
 
     def check_events(self):
+        # 1. ACTUALIZAR LA BARRA DE PROGRESO (Solo si el usuario NO la está arrastrando)
+        if self.player.is_playing() and not self.slider_progress.isSliderDown():
+            current_sec = self.player.get_current_time()
+            self.slider_progress.setValue(int(current_sec))
+            self.label_time_current.setText(self.format_time(current_sec))
+
+        # 2. LÓGICA DE FIN DE CANCIÓN
         if self.player.check_song_end():
-            # 1. Prioridad máxima: ¿Repetir la misma canción?
             if self.player.loop_song:
                 self.player.play_from_index(self.player.current_index)
-
-            # 2. Si no repite canción, ¿quedan canciones en la playlist?
             elif self.player.current_index < len(self.player.queue) - 1:
                 self.next_song()
-
-            # 3. Si se acabó la playlist, ¿está activo repetir playlist?
             elif self.player.loop_playlist:
-                self.player.play_from_index(0)  # Vuelve a la primera
+                self.player.play_from_index(0)
                 self.update_label()
                 self.btn_play.setText("Pause")
-
-            # 4. Si nada de lo anterior se cumple, se terminó la música
             else:
                 self.stop()
+
+    def cambiar_posicion_cancion(self, valor):
+        # Aquí calculas los segundos exactos según el 'valor' del slider
+        # y la duración total de tu pista actual.
+        # Luego usas pygame.mixer.music.set_pos() (o rewind/play según el formato)
+        print(f"Pygame seek: Saltando a la posición {valor}")
+
+    def seek_position(self):
+        # Leemos dónde soltaste la bolita
+        new_time = self.slider_progress.value()
+
+        # Le ordenamos al motor interno que salte a ese segundo
+        self.player.seek(new_time)
+
+        # Actualizamos el texto inmediatamente para que no haya lag visual
+        self.label_time_current.setText(self.format_time(new_time))
+        self.btn_play.setText("Pause")
+
+    # Debe tener 'self' como primer argumento porque es un método de la clase
+    def format_time(self, seconds: float) -> str:
+        mins = int(seconds // 60)
+        secs = int(seconds % 60)
+        return f"{mins}:{secs:02d}"
 
     def toggle_loop_song_ui(self):
         self.player.toggle_loop_song()
@@ -204,23 +265,14 @@ class MainWindow(QMainWindow):
                 for path in self.current_viewing_paths:
                     self.list_songs.addItem(os.path.basename(path))
 
-        if dialog.exec():
-            file_paths = dialog.selectedFiles()
-            if file_paths:
-                self.player.load_queue(file_paths)
-                self.player.play()
-                self.update_label()
-                self.btn_play.setText("Pause")
-
     def save_playlist(self):
-        if not self.player.queue:
+        if not self.player._original_queue:
             QMessageBox.warning(self, "Aviso", "No hay canciones cargadas para guardar.")
             return
-
         name, ok = QInputDialog.getText(self, "Guardar playlist", "Nombre de la playlist:")
         if ok and name:
-            self.db.save_playlist(name, self.player.queue)
-            self.load_playlists()  # actualiza la lista visual
+            self.db.save_playlist(name, self.player._original_queue)  # ← orden original
+            self.load_playlists()
 
     def load_playlists(self):
         self.list_playlists.clear()
@@ -308,6 +360,12 @@ class MainWindow(QMainWindow):
     def update_label(self):
         song = self.player.current_song()
         self.label_song.setText(os.path.basename(song))
+
+        # Configurar la barra de progreso para la nueva canción
+        total_length = self.player.get_total_length()
+        self.slider_progress.setMaximum(int(total_length))
+        self.label_time_total.setText(self.format_time(total_length))
+        self.slider_progress.setEnabled(True)
 
     def closeEvent(self, event):
         # Guardamos la configuración antes de cerrar la conexión
