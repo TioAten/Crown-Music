@@ -18,6 +18,8 @@ class Player:
         self.load(self.queue[0]) # carga ña primera canción
 
     def play(self):
+        if not self.queue:  # si no hay nada cargado, no hace nada
+            return
         pygame.mixer.music.play()
         self._playing = True
 
