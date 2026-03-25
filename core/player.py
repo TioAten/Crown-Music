@@ -8,6 +8,20 @@ class Player:
         self.queue = [] # lista de rustas de archivos
         self.current_index = 0 #índice de la canción actual
 
+        # Nuevos estados booleanos para los buvles
+        self.loop_song = False
+        self.loop_plsylist = False
+
+    def toggle_loop_song(self):
+        self.loop_song = not self.loop_song
+        if self.loop_song:
+            self.loop_playlist = False  # Son mutuamente excluyentes
+
+    def toggle_loop_playlist(self):
+        self.loop_playlist = not self.loop_playlist
+        if self.loop_playlist:
+            self.loop_song = False
+
     def load(self, file_path: str):
         pygame.mixer.music.stop()
         pygame.mixer.music.unload()  # ← libera el archivo actual antes de cargar el nuevo

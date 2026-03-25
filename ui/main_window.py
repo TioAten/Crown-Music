@@ -38,6 +38,8 @@ class MainWindow(QMainWindow):
         self.btn_next = QPushButton("⏭")
         self.btn_play = QPushButton("Play")
         self.btn_stop = QPushButton("Stop")
+        self.btn_loop_song = QPushButton("Repetir Canción: OFF")
+        self.btn_loop_playlist = QPushButton("Repetir Playlist: OFF")
 
         #Layout de las dos listas lado a lado
         lists_layout = QHBoxLayout()
@@ -50,6 +52,8 @@ class MainWindow(QMainWindow):
         controls_layout.addWidget(self.btn_play)
         controls_layout.addWidget(self.btn_stop)
         controls_layout.addWidget(self.btn_next)
+        controls_layout.addWidget(self.btn_loop_song)
+        controls_layout.addWidget(self.btn_loop_playlist)
 
         # Layout de botones de playlist
         playlist_buttons_layout = QHBoxLayout()
@@ -82,6 +86,8 @@ class MainWindow(QMainWindow):
         self.list_playlists.currentRowChanged.connect(self.show_playlist_songs)
         self.list_playlists.itemDoubleClicked.connect(self.load_playlist)
         self.list_songs.itemDoubleClicked.connect(self.play_song_from_list)
+        self.btn_loop_song.clicked.connect(self.toggle_loop_song_ui)
+        self.btn_loop_playlist.clicked.connect(self.toggle_loop_playlist_ui)
 
         # Temporizador para escuchar los events de Pygame
         self.timer = QTimer(self)
@@ -89,14 +95,39 @@ class MainWindow(QMainWindow):
         self.timer.start(500) # Revisa dos veces por segundo (500 ms)
 
     def check_events(self):
-        # Si el reproductor detecta que la canción terminó de forma natural
         if self.player.check_song_end():
-            # Si todavía quedan canciones en la lista, pasamos a la siguiente
-            if self.player.current_index < len(self.player.queue) - 1:
+            # 1. Prioridad máxima: ¿Repetir la misma canción?
+            if self.player.loop_song:
+                self.player.play_from_index(self.player.current_index)
+
+            # 2. Si no repite canción, ¿quedan canciones en la playlist?
+            elif self.player.current_index < len(self.player.queue) - 1:
                 self.next_song()
+
+            # 3. Si se acabó la playlist, ¿está activo repetir playlist?
+            elif self.player.loop_playlist:
+                self.player.play_from_index(0)  # Vuelve a la primera
+                self.update_label()
+                self.btn_play.setText("Pause")
+
+            # 4. Si nada de lo anterior se cumple, se terminó la música
             else:
-                # Si era la última canción de la playlist, detenemos todo
                 self.stop()
+
+    def toggle_loop_song_ui(self):
+        self.player.toggle_loop_song()
+        # Actualizamos la UI según los estados internos del player
+        estado = "ON" if self.player.loop_song else "OFF"
+        self.btn_loop_song.setText(f"Repetir Canción: {estado}")
+        if self.player.loop_song:
+            self.btn_loop_playlist.setText("Repetir Playlist: OFF")
+
+    def toggle_loop_playlist_ui(self):
+        self.player.toggle_loop_playlist()
+        estado = "ON" if self.player.loop_playlist else "OFF"
+        self.btn_loop_playlist.setText(f"Repetir Playlist: {estado}")
+        if self.player.loop_playlist:
+            self.btn_loop_song.setText("Repetir Canción: OFF")
 
     def load_playlist(self):
         selected_index = self.list_playlists.currentRow()
