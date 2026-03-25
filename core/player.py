@@ -4,6 +4,7 @@ class Player:
     def __init__(self):
         pygame.mixer.init()
         self._playing = False
+        self._paused = False # <- nueva adición del gemini
         self.queue = [] # lista de rustas de archivos
         self.current_index = 0 #índice de la canción actual
 
@@ -11,6 +12,7 @@ class Player:
         pygame.mixer.music.stop()
         pygame.mixer.music.unload()  # ← libera el archivo actual antes de cargar el nuevo
         pygame.mixer.music.load(file_path)
+        self._paused = False
 
     def load_queue(self, file_paths: list):
         self.queue = file_paths # guarda la lista completa
@@ -22,18 +24,44 @@ class Player:
             return
         pygame.mixer.music.play()
         self._playing = True
+        self._paused = False
+
+    def toggle_playback(self) -> bool:
+        # Si está sonando, pausa
+        if self._playing:
+            pygame.mixer.music.pause()
+            self._playing = False
+            self._paused = True
+        # Si estaba pausado, reanuda (esto arregla tu problema)
+        elif self._paused:
+            pygame.mixer.music.unpause()
+            self._playing = True
+            self._paused = False
+        # Si estaba detenido por completo, arranca de cero
+        else:
+            self.play()
+
+        return self._playing
+
+    def play_from_index(self, index: int):
+        if 0 <= index < len(self.queue):
+            self.current_index = index
+            self.load(self.queue[self.current_index])
+            self.play()
 
     def pause(self):
         if self._playing:
             pygame.mixer.music.pause()
             self._playing = False
-        else:
+            self._paused = True # <- nueva adición del gemini
+        """else:
             pygame.mixer.music.unpause()
-            self._playing = True
+            self._playing = True"""
 
     def stop(self):
         pygame.mixer.music.stop()
         self._playing = False
+        self._paused = False
 
     def next(self):
         if self.current_index < len(self.queue) - 1:

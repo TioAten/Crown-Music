@@ -8,7 +8,7 @@ from core.database import Database
 
 class MainWindow(QMainWindow):
     def __init__(self):
-        super().__init__() # Llama al constuctor padre
+        super().__init__() # Llama al constructor padre
 
         self.player = Player()
         self.db = Database()
@@ -16,19 +16,20 @@ class MainWindow(QMainWindow):
 
         # Configuración de la ventana
         self.setWindowTitle("Crown Music")
-        self.setMinimumSize(500, 400)
+        self.setMinimumSize(600, 400)
 
         # Label que muestra la canción actual
         self.label_song = QLabel("Ninguna canción cargada")
 
         # Lista de playlists
         self.list_playlists = QListWidget()
+        self.list_songs = QListWidget()
         self.load_playlists()
 
         #Botones de Playlists
         self.btn_open = QPushButton("Abrir archivo")
         self.btn_save = QPushButton("Guardar playlist")
-        self.btn_load = QPushButton("Cargar playlist")
+        self.btn_rename = QPushButton("Renombrar playlist")
         self.btn_delete = QPushButton("Eliminar playlist")
 
         # Botones de control
@@ -36,6 +37,11 @@ class MainWindow(QMainWindow):
         self.btn_next = QPushButton("⏭")
         self.btn_play = QPushButton("Play")
         self.btn_stop = QPushButton("Stop")
+
+        #Layout de las dos listas lado a lado
+        lists_layout = QHBoxLayout()
+        lists_layout.addWidget(self.list_playlists)
+        lists_layout.addWidget(self.list_songs)
 
         # Layout de controles - organiza los botones horizontalmente
         controls_layout = QHBoxLayout()
@@ -48,13 +54,12 @@ class MainWindow(QMainWindow):
         playlist_buttons_layout = QHBoxLayout()
         playlist_buttons_layout.addWidget(self.btn_open)
         playlist_buttons_layout.addWidget(self.btn_save)
-        playlist_buttons_layout.addWidget(self.btn_load)
+        playlist_buttons_layout.addWidget(self.btn_rename)
         playlist_buttons_layout.addWidget(self.btn_delete)
 
         # Layout principal
         main_layout = QVBoxLayout()
-        main_layout.addWidget(QLabel("Playlists guardadas:"))
-        main_layout.addWidget(self.list_playlists)
+        main_layout.addLayout(lists_layout)
         main_layout.addLayout(playlist_buttons_layout)
         main_layout.addWidget(self.label_song)
         main_layout.addLayout(controls_layout)
@@ -67,13 +72,15 @@ class MainWindow(QMainWindow):
         # Signals - conectamos cada botón con su metodo
         self.btn_open.clicked.connect(self.open_files)
         self.btn_save.clicked.connect(self.save_playlist)
-        self.btn_load.clicked.connect(self.load_playlist)
+        self.btn_rename.clicked.connect(self.rename_playlist)
         self.btn_delete.clicked.connect(self.delete_playlist)
         self.btn_play.clicked.connect(self.toggle_play)
         self.btn_stop.clicked.connect(self.stop)
         self.btn_next.clicked.connect(self.next_song)
         self.btn_previous.clicked.connect(self.previous_song)
         self.list_playlists.currentRowChanged.connect(self.show_playlist_songs)
+        self.list_playlists.itemDoubleClicked.connect(self.load_playlist)
+        self.list_songs.itemDoubleClicked.connect(self.play_song_from_list)
 
     def load_playlist(self):
         selected_index = self.list_playlists.currentRow()
@@ -128,21 +135,50 @@ class MainWindow(QMainWindow):
         self.db.delete_playlist(playlist_id)
         self.load_playlists()
 
+    def rename_playlist(self):
+        selected_index = self.list_playlists.currentRow()
+        if selected_index == -1:
+            QMessageBox.warning(self, "Aviso", "Seleccioná una playlist de la lista.")
+            return
+        current_name = self.list_playlists.currentItem().text()
+        new_name, ok = QInputDialog.getText(self, "Renombrar playlist", "Nuevo nombre:", text=current_name)
+        if ok and new_name:
+            playlist_id = self.playlist_ids[selected_index]
+            self.db.rename_playlist(playlist_id, new_name)
+            self.load_playlists()
+
+    def play_song_from_list(self):
+        selected_index = self.list_songs.currentRow()
+        if selected_index == -1:
+            return
+
+        # Asegurarnos de que el reproductor tenga la cola de la playlist actual
+        playlist_index = self.list_playlists.currentRow()
+        if playlist_index != -1:
+            playlist_id = self.playlist_ids[playlist_index]
+            self.player.queue = self.db.get_songs(playlist_id)
+
+        self.player.play_from_index(selected_index)
+        self.update_label()
+        self.btn_play.setText("Pause")
+
     def show_playlist_songs(self, index):
         if index == -1:
             return
+        self.list_songs.clear()  # ← limpiar la lista
         playlist_id = self.playlist_ids[index]
         songs = self.db.get_songs(playlist_id)
-        song_names = [os.path.basename(path) for path in songs]
-        self.label_song.setText(" | ".join(song_names))
+        for path in songs:
+            self.list_songs.addItem(os.path.basename(path))
 
     def toggle_play(self):
-        if self.player.is_playing():
-            self.player.stop()
-            self.btn_play.setText("Play")
-        else:
-            self.player.play()
+        # El reproductor decide internamente si pausar, reanudar o reiniciar
+        is_playing = self.player.toggle_playback()
+
+        if is_playing:
             self.btn_play.setText("Pause")
+        else:
+            self.btn_play.setText("Play")
 
     def stop(self):
         self.player.stop()

@@ -42,6 +42,13 @@ class Database:
         self.connection.commit()
         return playlist_id
 
+    def rename_playlist(self, playlist_id: int, new_name: str):
+        self.cursor.execute(
+            "UPDATE playlists SET name = ? WHERE id = ?",
+            (new_name, playlist_id)
+        )
+        self.connection.commit()
+
     def get_playlists(self) -> list:
         self.cursor.execute("SELECT id, name FROM playlists")
         return self.cursor.fetchall() #retorna lista de tuplas (id, name)
