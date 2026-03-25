@@ -25,7 +25,28 @@ class Database:
             "FOREIGN KEY (playlist_id) REFERENCES playlists(id))"
         )
 
+        # NUEVA TABLA: Configuración general de la app
+        self.cursor.execute(
+            "CREATE TABLE IF NOT EXISTS settings ("
+            "key TEXT PRIMARY KEY,"
+            "value TEXT NOT NULL)"
+        )
+
         self.connection.commit()
+
+        # NUEVOS MÉTODOS PARA SETTINGS
+    def save_setting(self, key: str, value: str):
+        # INSERT OR REPLACE actualiza el valor si la clave ya existe
+        self.cursor.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            (key, value)
+        )
+        self.connection.commit()
+
+    def get_setting(self, key: str, default: str) -> str:
+        self.cursor.execute("SELECT value FROM settings WHERE key = ?", (key,))
+        row = self.cursor.fetchone()
+        return row[0] if row else default
 
     def save_playlist(self, name: str, file_paths: list) -> int:
         # Inserta la playlist y obtiene su id

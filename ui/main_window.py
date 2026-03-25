@@ -1,9 +1,11 @@
 import os
+
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QFileDialog, QInputDialog, QListWidget, QMessageBox
+    QPushButton, QLabel, QFileDialog, QInputDialog, QListWidget, QMessageBox, QSlider
 )
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QTimer, Qt
+
 from core.player import Player
 from core.database import Database
 
@@ -13,7 +15,8 @@ class MainWindow(QMainWindow):
 
         self.player = Player()
         self.db = Database()
-        self.playlist_ids = [] # ← guardamos los IDs separados del texto visual
+        self.playlist_ids = [] # ← guardamos los ID separados del texto visual
+        self.current_viewing_paths = []  # ← Guarda las rutas reales de la lista visual
 
         # Configuración de la ventana
         self.setWindowTitle("Crown Music")
@@ -40,6 +43,21 @@ class MainWindow(QMainWindow):
         self.btn_stop = QPushButton("Stop")
         self.btn_loop_song = QPushButton("Repetir Canción: OFF")
         self.btn_loop_playlist = QPushButton("Repetir Playlist: OFF")
+        self.btn_shuffle = QPushButton("Shuffle: OFF")
+
+        # Slider de volumen
+        self.slider_volume = QSlider(Qt.Orientation.Horizontal)
+        self.slider_volume.setMinimum(0)
+        self.slider_volume.setMaximum(100)
+        self.slider_volume.setValue(100)  # volumen máximo por defecto
+        self.slider_volume.setFixedWidth(100)
+
+        # Recuperamos el volumen guardado (por defecto 100)
+        saved_volume = int(self.db.get_setting("volume", "100"))
+
+        self.slider_volume.setValue(saved_volume)
+        self.label_volume = QLabel(f"Vol: {saved_volume}%")
+        self.player.set_volume(saved_volume / 100)  # Aplicamos el volumen real al motor
 
         #Layout de las dos listas lado a lado
         lists_layout = QHBoxLayout()
@@ -54,6 +72,11 @@ class MainWindow(QMainWindow):
         controls_layout.addWidget(self.btn_next)
         controls_layout.addWidget(self.btn_loop_song)
         controls_layout.addWidget(self.btn_loop_playlist)
+        controls_layout.addWidget(self.btn_loop_song)
+        controls_layout.addWidget(self.btn_loop_playlist)
+        controls_layout.addWidget(self.btn_shuffle)
+        controls_layout.addWidget(self.label_volume)
+        controls_layout.addWidget(self.slider_volume)
 
         # Layout de botones de playlist
         playlist_buttons_layout = QHBoxLayout()
@@ -74,7 +97,7 @@ class MainWindow(QMainWindow):
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
 
-        # Signals - conectamos cada botón con su metodo
+        # Signals - conectamos cada botón con su método
         self.btn_open.clicked.connect(self.open_files)
         self.btn_save.clicked.connect(self.save_playlist)
         self.btn_rename.clicked.connect(self.rename_playlist)
@@ -88,11 +111,23 @@ class MainWindow(QMainWindow):
         self.list_songs.itemDoubleClicked.connect(self.play_song_from_list)
         self.btn_loop_song.clicked.connect(self.toggle_loop_song_ui)
         self.btn_loop_playlist.clicked.connect(self.toggle_loop_playlist_ui)
+        self.btn_shuffle.clicked.connect(self.toggle_shuffle_ui)
+        self.slider_volume.valueChanged.connect(self.change_volume)
 
         # Temporizador para escuchar los events de Pygame
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.check_events)
         self.timer.start(500) # Revisa dos veces por segundo (500 ms)
+
+    def toggle_shuffle_ui(self):
+        self.player.toggle_shuffle()
+        estado = "ON" if self.player.shuffle else "OFF"
+        self.btn_shuffle.setText(f"Shuffle: {estado}")
+        # Eliminamos el código que redibujaba la lista para que quede estática
+
+    def change_volume(self, value: int):
+        self.player.set_volume(value / 100)  # convertimos 0-100 a 0.0-1.0
+        self.label_volume.setText(f"Vol: {value}%")
 
     def check_events(self):
         if self.player.check_song_end():
@@ -136,10 +171,17 @@ class MainWindow(QMainWindow):
             return
         playlist_id = self.playlist_ids[selected_index]
         file_paths = self.db.get_songs(playlist_id)
+
         self.player.load_queue(file_paths)
         self.player.play()
         self.update_label()
         self.btn_play.setText("Pause")
+
+        # Dibujamos siempre la lista en su orden original, ignorando el shuffle
+        self.list_songs.clear()
+        self.current_viewing_paths = self.player._original_queue.copy()
+        for path in self.current_viewing_paths:
+            self.list_songs.addItem(os.path.basename(path))
 
     def open_files(self):
         dialog = QFileDialog(self)
@@ -147,6 +189,20 @@ class MainWindow(QMainWindow):
         dialog.setNameFilter("Audio (*.mp3 *.wav *.flac *.ogg)")
         dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
         dialog.setOption(QFileDialog.Option.DontUseNativeDialog)
+
+        if dialog.exec():
+            file_paths = dialog.selectedFiles()
+            if file_paths:
+                self.player.load_queue(file_paths)
+                self.player.play()
+                self.update_label()
+                self.btn_play.setText("Pause")
+
+                # Dibujamos siempre la lista en su orden original
+                self.list_songs.clear()
+                self.current_viewing_paths = self.player._original_queue.copy()
+                for path in self.current_viewing_paths:
+                    self.list_songs.addItem(os.path.basename(path))
 
         if dialog.exec():
             file_paths = dialog.selectedFiles()
@@ -199,22 +255,30 @@ class MainWindow(QMainWindow):
         if selected_index == -1:
             return
 
-        # Asegurarnos de que el reproductor tenga la cola de la playlist actual
-        playlist_index = self.list_playlists.currentRow()
-        if playlist_index != -1:
-            playlist_id = self.playlist_ids[playlist_index]
-            self.player.queue = self.db.get_songs(playlist_id)
+        # Obtenemos la ruta exacta de la canción que tocaste en la lista visual ordenada
+        clicked_path = self.current_viewing_paths[selected_index]
 
-        self.player.play_from_index(selected_index)
+        # Si el reproductor interno no tiene la misma cola que estamos viendo, se la cargamos
+        if self.player._original_queue != self.current_viewing_paths:
+            self.player.load_queue(self.current_viewing_paths.copy())
+
+        # Buscamos en qué índice exacto quedó esa canción dentro del reproductor (esté barajado o no)
+        actual_index = self.player.queue.index(clicked_path)
+
+        # Le decimos al reproductor que arranque desde ese índice interno
+        self.player.play_from_index(actual_index)
         self.update_label()
         self.btn_play.setText("Pause")
 
     def show_playlist_songs(self, index):
         if index == -1:
             return
-        self.list_songs.clear()  # ← limpiar la lista
+        self.list_songs.clear()
         playlist_id = self.playlist_ids[index]
         songs = self.db.get_songs(playlist_id)
+
+        self.current_viewing_paths = songs  # ← Sincronizamos la variable
+
         for path in songs:
             self.list_songs.addItem(os.path.basename(path))
 
@@ -246,5 +310,9 @@ class MainWindow(QMainWindow):
         self.label_song.setText(os.path.basename(song))
 
     def closeEvent(self, event):
-        self.db.close()  # cierra la conexión a la DB al cerrar la ventana
+        # Guardamos la configuración antes de cerrar la conexión
+        current_volume = self.slider_volume.value()
+        self.db.save_setting("volume", str(current_volume))
+
+        self.db.close()  # cierra la conexión a la DB
         event.accept()

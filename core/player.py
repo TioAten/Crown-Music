@@ -1,4 +1,5 @@
 import pygame
+import random
 
 class Player:
     def __init__(self):
@@ -7,10 +8,35 @@ class Player:
         self._paused = False # <- nueva adición del gemini
         self.queue = [] # lista de rustas de archivos
         self.current_index = 0 #índice de la canción actual
+        self.shuffle = False # ← nuevo
+        self._original_queue = [] # ← guarda el orden original
 
         # Nuevos estados booleanos para los buvles
         self.loop_song = False
-        self.loop_plsylist = False
+        self.loop_playlist = False
+
+    def toggle_shuffle(self):
+        self.shuffle = not self.shuffle
+
+        if not self.queue:
+            return  # Cambiamos el estado (ON/OFF), pero si no hay lista cortamos acá.
+
+        if self.shuffle:
+            self._original_queue = self.queue.copy()
+            current_song = self.queue[self.current_index]
+
+            random.shuffle(self.queue)  # Mezcla toda la lista (incluyendo la primera)
+
+            # Buscamos dónde quedó la canción actual en la lista mezclada para no interrumpirla
+            self.current_index = self.queue.index(current_song)
+        else:
+            current_song = self.queue[self.current_index]
+            self.queue = self._original_queue.copy()
+            self.current_index = self.queue.index(current_song)
+
+    def set_volume(self, value: float):
+        # value va de 0.0 a 1.0
+        pygame.mixer.music.set_volume(value)
 
     def toggle_loop_song(self):
         self.loop_song = not self.loop_song
@@ -29,9 +55,16 @@ class Player:
         self._paused = False
 
     def load_queue(self, file_paths: list):
-        self.queue = file_paths # guarda la lista completa
-        self.current_index = 0 # arranca desde la primera
-        self.load(self.queue[0]) # carga ña primera canción
+        self._original_queue = file_paths.copy()  # Guardamos siempre la original
+
+        if self.shuffle:
+            self.queue = file_paths.copy()
+            random.shuffle(self.queue)  # Mezcla total inmediata si el shuffle está ON
+        else:
+            self.queue = file_paths.copy()
+
+        self.current_index = 0
+        self.load(self.queue[0])
 
     def play(self):
         if not self.queue:  # si no hay nada cargado, no hace nada
@@ -68,9 +101,6 @@ class Player:
             pygame.mixer.music.pause()
             self._playing = False
             self._paused = True # <- nueva adición del gemini
-        """else:
-            pygame.mixer.music.unpause()
-            self._playing = True"""
 
     def stop(self):
         pygame.mixer.music.stop()
