@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QFileDialog, QInputDialog, QListWidget, QMessageBox
 )
+from PyQt6.QtCore import QTimer
 from core.player import Player
 from core.database import Database
 
@@ -81,6 +82,21 @@ class MainWindow(QMainWindow):
         self.list_playlists.currentRowChanged.connect(self.show_playlist_songs)
         self.list_playlists.itemDoubleClicked.connect(self.load_playlist)
         self.list_songs.itemDoubleClicked.connect(self.play_song_from_list)
+
+        # Temporizador para escuchar los events de Pygame
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.check_events)
+        self.timer.start(500) # Revisa dos veces por segundo (500 ms)
+
+    def check_events(self):
+        # Si el reproductor detecta que la canción terminó de forma natural
+        if self.player.check_song_end():
+            # Si todavía quedan canciones en la lista, pasamos a la siguiente
+            if self.player.current_index < len(self.player.queue) - 1:
+                self.next_song()
+            else:
+                # Si era la última canción de la playlist, detenemos todo
+                self.stop()
 
     def load_playlist(self):
         selected_index = self.list_playlists.currentRow()

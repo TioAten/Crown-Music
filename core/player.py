@@ -82,3 +82,11 @@ class Player:
 
     def is_playing(self) -> bool:
         return self._playing
+
+    def check_song_end(self) -> bool:
+        # get_busy() da False si la canción terminó o si se pausó.
+        # Si nuestra variable _playing es True y _paused es False,
+        # y get_busy() da False, es porque la canción terminó sola.
+        if self._playing and not self._paused and not pygame.mixer.music.get_busy():
+            return True
+        return False
