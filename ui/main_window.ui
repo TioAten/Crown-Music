@@ -113,6 +113,13 @@ QSlider::handle:horizontal:hover { background: #3d1fc4; transform: scale(1.2); }
            </spacer>
           </item>
           <item>
+           <widget class="QPushButton" name="btn_add_songs">
+            <property name="text">
+             <string>Añadir</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <widget class="QPushButton" name="btn_delete">
             <property name="text">
              <string>Eliminar Seleccionado</string>

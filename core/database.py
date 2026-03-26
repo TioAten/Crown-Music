@@ -86,5 +86,23 @@ class Database:
         self.cursor.execute("DELETE FROM playlists WHERE id = ?", (playlist_id,))
         self.connection.commit()
 
+    def add_songs_to_playlist(self, playlist_id: int, file_paths: list):
+        # 1. Averiguamos cuál es la última posición ocupada en esta playlist
+        self.cursor.execute("SELECT MAX(position) FROM songs WHERE playlist_id = ?", (playlist_id,))
+        result = self.cursor.fetchone()
+
+        # Si la lista estaba vacía (raro, pero posible), empezamos desde -1 para que el bucle sume a 0
+        current_max = result[0] if result[0] is not None else -1
+
+        # 2. Insertamos las canciones nuevas en la tabla correcta ('songs')
+        for path in file_paths:
+            current_max += 1
+            self.cursor.execute("""
+                                INSERT INTO songs (playlist_id, path, position)
+                                VALUES (?, ?, ?)
+                                """, (playlist_id, path, current_max))
+
+        self.connection.commit()
+
     def close(self):
         self.connection.close()

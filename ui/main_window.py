@@ -86,6 +86,9 @@ class MainWindow(QMainWindow):
 
         self.btn_delete.setIcon(qta.icon('fa5s.trash-alt', color=color_icono))
         self.btn_delete.setText(" Eliminar")
+        if hasattr(self, 'btn_add_songs'):
+            self.btn_add_songs.setIcon(qta.icon('fa5s.plus', color=color_icono))
+            self.btn_add_songs.setText(" Añadir")
 
         # 2. Controles de Reproducción (Solo íconos, sin texto para que quede simétrico)
         self.btn_play.setIcon(qta.icon('fa5s.play', color=color_icono))
@@ -110,6 +113,8 @@ class MainWindow(QMainWindow):
         self.btn_loop_playlist.setIcon(qta.icon('fa5s.sync', color=color_icono))
         self.btn_loop_playlist.setText(" All")  # "All" indica que repite toda la lista
 
+
+
         # Signals - conectamos cada botón con su método
         self.btn_open.clicked.connect(self.open_files)
         self.btn_save.clicked.connect(self.save_playlist)
@@ -126,6 +131,7 @@ class MainWindow(QMainWindow):
         self.btn_loop_playlist.clicked.connect(self.toggle_loop_playlist_ui)
         self.btn_shuffle.clicked.connect(self.toggle_shuffle_ui)
         self.slider_volume.valueChanged.connect(self.change_volume)
+        self.btn_add_songs.clicked.connect(self.add_songs_to_existing_playlist)
 
         # Conexión de tu slider promovido
         self.slider_progress.sliderMoved.connect(self.seek_position)
@@ -280,6 +286,43 @@ class MainWindow(QMainWindow):
         playlist_id = self.playlist_ids[selected_index]
         self.db.delete_playlist(playlist_id)
         self.load_playlists()
+
+    def add_songs_to_existing_playlist(self):
+        try:
+            # 1. Verificar que haya una playlist seleccionada
+            selected_index = self.list_playlists.currentRow()
+            if selected_index == -1:
+                QMessageBox.warning(self, "Aviso", "Seleccioná una playlist en la columna izquierda primero.")
+                return
+
+            # 2. Abrir el diálogo
+            dialog = QFileDialog(self)
+            dialog.setWindowTitle("Añadir canciones a la playlist")
+            dialog.setNameFilter("Audio (*.mp3 *.wav *.flac *.ogg)")
+            dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
+            dialog.setOption(QFileDialog.Option.DontUseNativeDialog)
+
+            if dialog.exec():
+                new_paths = dialog.selectedFiles()
+                if new_paths:
+                    # 3. Guardar en BD
+                    playlist_id = self.playlist_ids[selected_index]
+                    self.db.add_songs_to_playlist(playlist_id, new_paths)
+
+                    # 4. Refrescar UI
+                    self.show_playlist_songs(selected_index)
+
+                    # 5. Sincronizar reproductor
+                    if self.current_viewing_paths == self.player._original_queue:
+                        updated_songs = self.db.get_songs(playlist_id)
+                        # Usamos getattr por si current_index no existe todavía
+                        current_index = getattr(self.player, 'current_index', 0)
+                        self.player.load_queue(updated_songs)
+                        self.player.current_index = current_index
+
+        except Exception as e:
+            # Atrapamos el crash y lo mostramos en pantalla
+            QMessageBox.critical(self, "Error de Ejecución", f"Falla interna detectada:\n{str(e)}")
 
     def rename_playlist(self):
         selected_index = self.list_playlists.currentRow()
