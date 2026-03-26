@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>900</width>
+    <height>550</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Crown Music</string>
+  </property>
+  <property name="styleSheet">
+   <string>
+QMainWindow, #centralwidget { background-color: #121212; }
+QLabel { color: #E0E0E0; font-size: 14px; font-weight: bold; }
+QListWidget { background-color: #1E1E1E; color: #FFFFFF; border: 1px solid #333333; border-radius: 5px; padding: 5px; font-size: 13px; }
+QListWidget::item:selected { background-color: #3d1fc4; color: white; border-radius: 3px; }
+QListWidget::item:hover { background-color: #2A2A2A; }
+QPushButton { background-color: #282828; color: white; border: none; border-radius: 15px; padding: 8px 15px; font-size: 13px; }
+QPushButton:hover { background-color: #3E3E3E; }
+QPushButton:pressed { background-color: #3d1fc4; color: white; }
+QPushButton#btn_play { background-color: #3d1fc4; color: white; font-weight: bold; padding: 8px 25px; }
+QPushButton#btn_play:hover { background-color: #4c2be8; transform: scale(1.05); }
+QPushButton#btn_play:pressed { background-color: #2c168f; }
+QSlider::groove:horizontal { border-radius: 2px; height: 6px; background: #404040; }
+QSlider::sub-page:horizontal { background: #3d1fc4; border-radius: 2px; }
+QSlider::handle:horizontal { background: #FFFFFF; width: 14px; height: 14px; margin: -4px 0; border-radius: 7px; }
+QSlider::handle:horizontal:hover { background: #3d1fc4; transform: scale(1.2); }
+   </string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout_main">
+    <property name="spacing">
+     <number>15</number>
+    </property>
+    <property name="leftMargin">
+     <number>20</number>
+    </property>
+    <property name="topMargin">
+     <number>20</number>
+    </property>
+    <property name="rightMargin">
+     <number>20</number>
+    </property>
+    <property name="bottomMargin">
+     <number>20</number>
+    </property>
+    <item>
+     <layout class="QHBoxLayout" name="horizontalLayout_top" stretch="1,3">
+      <property name="spacing">
+       <number>15</number>
+      </property>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_left">
+        <property name="spacing">
+         <number>10</number>
+        </property>
+        <item>
+         <widget class="QListWidget" name="list_playlists"/>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_btn_playlists">
+          <item>
+           <widget class="QPushButton" name="btn_open">
+            <property name="text">
+             <string>Abrir</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_save">
+            <property name="text">
+             <string>Guardar</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_rename">
+            <property name="text">
+             <string>Renombrar</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_right">
+        <property name="spacing">
+         <number>10</number>
+        </property>
+        <item>
+         <widget class="QListWidget" name="list_songs"/>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_delete">
+          <item>
+           <spacer name="spacer_delete">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btn_delete">
+            <property name="text">
+             <string>Eliminar Seleccionado</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QVBoxLayout" name="verticalLayout_bottom">
+      <property name="spacing">
+       <number>5</number>
+      </property>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_progress">
+        <item>
+         <widget class="QLabel" name="label_time_current">
+          <property name="text">
+           <string>0:00</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ClickableSlider" name="slider_progress">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="label_time_total">
+          <property name="text">
+           <string>0:00</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_controls">
+        <property name="topMargin">
+         <number>10</number>
+        </property>
+        <item>
+         <widget class="QLabel" name="label_song">
+          <property name="text">
+           <string>Ninguna canción cargada</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="spacer_left">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_shuffle">
+          <property name="text">
+           <string>🔀</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_loop_song">
+          <property name="text">
+           <string>🔂</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_loop_playlist">
+          <property name="text">
+           <string>🔁</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="spacer_mid1">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_previous">
+          <property name="text">
+           <string>⏮</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_play">
+          <property name="text">
+           <string>▶ Play</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_stop">
+          <property name="text">
+           <string>⏹</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_next">
+          <property name="text">
+           <string>⏭</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="spacer_right">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QSlider" name="slider_volume">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ClickableSlider</class>
+   <extends>QSlider</extends>
+   <header>ui.main_window</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>
