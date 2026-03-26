@@ -59,7 +59,6 @@ class MainWindow(QMainWindow):
         # Recuperamos el volumen guardado (por defecto 100)
         saved_volume = int(self.db.get_setting("volume", "100"))
         self.slider_volume.setValue(saved_volume)
-        #self.label_volume.setText(f"Vol: {saved_volume}%") # Ahora es un QLabel del .ui
         self.player.set_volume(saved_volume / 100)  # Aplicamos el volumen real al motor
 
         self.slider_progress.setEnabled(False)  # Se desactiva si no hay música
@@ -137,7 +136,6 @@ class MainWindow(QMainWindow):
 
     def change_volume(self, value: int):
         self.player.set_volume(value / 100)  # convertimos 0-100 a 0.0-1.0
-        self.label_volume.setText(f"Vol: {value}%")
 
     def check_events(self):
         # 1. ACTUALIZAR LA BARRA DE PROGRESO (Solo si el usuario NO la está arrastrando)
