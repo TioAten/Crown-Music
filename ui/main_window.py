@@ -15,6 +15,8 @@ import ctypes
 
 from PyQt6.QtGui import QIcon
 
+from core.utils import get_resource_path
+
 # Agrega la clase ClickableSlider
 class ClickableSlider(QSlider):
     def mousePressEvent(self, event):
@@ -34,7 +36,8 @@ class MainWindow(QMainWindow):
         super().__init__() # Llama al constructor padre
 
         # 1. Ícono de la ventana principal
-        self.setWindowIcon(QIcon("assets/icons/icon.png"))
+        icon_path = get_resource_path("assets/icons/icon.png")
+        self.setWindowIcon(QIcon(icon_path))
 
         # Forzar modo oscuro en la barra de título nativa de Windows
         if sys.platform == "win32":
@@ -47,12 +50,16 @@ class MainWindow(QMainWindow):
 
         #self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
 
-        uic.loadUi("ui/main_window.ui", self)
+        ui_path = get_resource_path("ui/main_window.ui")
+        uic.loadUi(ui_path, self)
 
         self.player = Player()
         self.db = Database()
         self.playlist_ids = [] # ← guardamos los ID separados del texto visual
         self.current_viewing_paths = []  # ← Guarda las rutas reales de la lista visual
+
+        # Esperamos 100 milisegundos después de que la app arranque para procesar archivos externos
+        QTimer.singleShot(100, self.procesar_archivo_externo)
 
         self.load_playlists()
 
@@ -127,6 +134,26 @@ class MainWindow(QMainWindow):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.check_events)
         self.timer.start(500) # Revisa dos veces por segundo (500 ms)
+
+    def procesar_archivo_externo(self):
+        """ Revisa si la aplicación fue abierta mediante 'Abrir con...' y reproduce el archivo """
+        if len(sys.argv) > 1:
+            # Capturamos la ruta y la normalizamos para evitar problemas de barras (\ vs /)
+            external_file = os.path.abspath(sys.argv[1])
+
+            if os.path.isfile(external_file):
+                # Cargamos al reproductor y le damos play
+                self.player.load_queue([external_file])
+                self.player.play()
+
+                # Actualizamos la UI
+                self.update_label()
+                self.actualizar_icono_play(True)
+
+                self.list_songs.clear()
+                self.current_viewing_paths = self.player._original_queue.copy()
+                for path in self.current_viewing_paths:
+                    self.list_songs.addItem(os.path.basename(path))
 
     def toggle_shuffle_ui(self):
         self.player.toggle_shuffle()
