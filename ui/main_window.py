@@ -57,6 +57,7 @@ class MainWindow(QMainWindow):
         self.db = Database()
         self.playlist_ids = [] # ← guardamos los ID separados del texto visual
         self.current_viewing_paths = []  # ← Guarda las rutas reales de la lista visual
+        self.current_playing_playlist_id = None  # <-- NUEVO: Rastreador de la playlist activa
 
         # Esperamos 100 milisegundos después de que la app arranque para procesar archivos externos
         QTimer.singleShot(100, self.procesar_archivo_externo)
@@ -149,12 +150,14 @@ class MainWindow(QMainWindow):
 
             if os.path.isfile(external_file):
                 # Cargamos al reproductor y le damos play
+                self.current_playing_playlist_id = None
                 self.player.load_queue([external_file])
                 self.player.play()
 
                 # Actualizamos la UI
                 self.update_label()
                 self.actualizar_icono_play(True)
+                self.update_playlist_highlight()
 
                 self.list_songs.clear()
                 self.current_viewing_paths = self.player._original_queue.copy()
@@ -228,12 +231,14 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Aviso", "Seleccioná una playlist de la lista.")
             return
         playlist_id = self.playlist_ids[selected_index]
-        file_paths = self.db.get_songs(playlist_id)
+        self.current_playing_playlist_id = playlist_id  # <-- ANOTAMOS CUÁL SUENA
 
+        file_paths = self.db.get_songs(playlist_id)
         self.player.load_queue(file_paths)
         self.player.play()
         self.update_label()
         self.actualizar_icono_play(True)
+        self.update_playlist_highlight()  # <-- ACTUALIZAMOS LA U
 
         # Dibujamos siempre la lista en su orden original, ignorando el shuffle
         self.list_songs.clear()
@@ -251,10 +256,12 @@ class MainWindow(QMainWindow):
         if dialog.exec():
             file_paths = dialog.selectedFiles()
             if file_paths:
+                self.current_playing_playlist_id = None
                 self.player.load_queue(file_paths)
                 self.player.play()
                 self.update_label()
                 self.actualizar_icono_play(True)
+                self.update_playlist_highlight()
 
                 # Dibujamos siempre la lista en su orden original
                 self.list_songs.clear()
@@ -277,6 +284,7 @@ class MainWindow(QMainWindow):
         for playlist_id, name in self.db.get_playlists():
             self.list_playlists.addItem(name)
             self.playlist_ids.append(playlist_id)
+        self.update_playlist_highlight()
 
     def delete_playlist(self):
         selected_index = self.list_playlists.currentRow()
@@ -286,6 +294,18 @@ class MainWindow(QMainWindow):
         playlist_id = self.playlist_ids[selected_index]
         self.db.delete_playlist(playlist_id)
         self.load_playlists()
+
+    def update_playlist_highlight(self):
+        """ Pone un ícono de 'reproduciendo' en la playlist activa sin robar la selección """
+        from PyQt6.QtGui import QIcon
+        for i in range(self.list_playlists.count()):
+            item = self.list_playlists.item(i)
+            # Si el ID de esta fila coincide con la playlist que está sonando
+            if self.playlist_ids and i < len(self.playlist_ids) and self.playlist_ids[
+                i] == self.current_playing_playlist_id:
+                item.setIcon(qta.icon('fa5s.volume-up', color='#5e3cf5'))
+            else:
+                item.setIcon(QIcon())  # Limpia el ícono de las demás
 
     def add_songs_to_existing_playlist(self):
         try:
@@ -393,6 +413,14 @@ class MainWindow(QMainWindow):
         # Solo actualiza si hay una canción cargada en el reproductor interno
         if song:
             self.label_song.setText(os.path.basename(song))
+
+            # --- NUEVO: Sincronización visual en la lista ---
+            if song in self.current_viewing_paths:
+                index = self.current_viewing_paths.index(song)
+                self.list_songs.setCurrentRow(index)
+            else:
+                self.list_songs.clearSelection()
+
             # Configurar la barra de progreso para la nueva canción
             total_length = self.player.get_total_length()
             if total_length > 0:
