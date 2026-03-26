@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 .idea/
 crown_music.db
+build/
+dist/
+*.spec
+Thumbs.db
